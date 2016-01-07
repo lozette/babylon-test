@@ -1,35 +1,6 @@
+require 'shop_data.rb'
+
 class Checkout
-    ITEMS = {
-    '001' => {
-      'name'  => 'Lavender heart',
-      'price' => 9.25
-    },
-    '002' => {
-      'name'  => 'Personalised cufflinks',
-      'price' => 45
-    },
-    '003' => {
-      'name'  => 'Kids T-shirt',
-      'price' => 19.95
-    }
-  }
-
-  # Ditto these
-  TOTAL_DISCOUNT = [
-    {
-      'threshold' => 60,
-      'discount'  => 10
-    }
-  ]
-
-  MULTIBUY = [
-    {
-      'applies_to' => 001,
-      'threshold'  => 2,
-      'new_price'  => 8.5
-    }
-  ]
-
   @@basket = []
 
   def initialize(total_discount: false, multibuy: false)
@@ -38,28 +9,55 @@ class Checkout
   end
 
   def scan(item)
-    price = ITEMS[item]['price']
+    price = ShopData::ITEMS[item]['price']
     @@basket.push({ 'item' => item, 'price' => price }) if price
   end
 
   def total
-    apply_promotions
-
-    @@basket.map {|i| i['price']}.reduce(0, :+)
+    apply_multibuy
+    apply_discount
+  ensure
+    empty_basket
   end
 
   private
 
-  def apply_promotions
-    apply_multibuy if @multibuy
-    apply_discount if @total_discount
-  end
-
-  def apply_discount
-
+  def empty_basket
+    @@basket = []
   end
 
   def apply_multibuy
+    return unless @multibuy
 
+    ShopData::MULTIBUY.each do |offer|
+      applies_to     = offer['applies_to']
+      relevant_items = @@basket.count { |i| i['item'] == applies_to }
+
+      if can_apply_promotion(relevant_items, offer['threshold'])
+        @@basket.map do |i|
+          i['price'] = offer['new_price'] if i['item'] == applies_to
+        end
+      end
+    end
+  end
+
+  def apply_discount
+    total = @@basket.map {|i| i['price']}.reduce(0, :+)
+    return total unless @total_discount
+
+    discount = ShopData::TOTAL_DISCOUNT
+    
+    if can_apply_promotion(total, discount['threshold'])
+      total = total - (total * to_percent(discount['discount']))
+      total.round(2)
+    end
+  end
+
+  def can_apply_promotion(num, threshold)
+    num >= threshold
+  end
+
+  def to_percent(num)
+    num.to_f / 100
   end
 end
