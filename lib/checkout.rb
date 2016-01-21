@@ -1,40 +1,34 @@
 require 'shop_data.rb'
 
 class Checkout
-  @@basket = []
 
   def initialize(total_discount: false, multibuy: false)
     @total_discount = total_discount
     @multibuy       = multibuy
+    @basket         = []
   end
 
   def scan(item)
     price = ShopData::ITEMS[item]['price']
-    @@basket.push({ 'item' => item, 'price' => price }) if price
+    @basket.push({ 'item' => item, 'price' => price }) if price
   end
 
   def total
     apply_multibuy
     apply_discount
-  ensure
-    empty_basket
   end
 
   private
-
-  def empty_basket
-    @@basket = []
-  end
 
   def apply_multibuy
     return unless @multibuy
 
     ShopData::MULTIBUY.each do |offer|
       applies_to     = offer['applies_to']
-      relevant_items = @@basket.count { |i| i['item'] == applies_to }
+      relevant_items = @basket.count { |i| i['item'] == applies_to }
 
       if can_apply_promotion(relevant_items, offer['threshold'])
-        @@basket.map do |i|
+        @basket.map do |i|
           i['price'] = offer['new_price'] if i['item'] == applies_to
         end
       end
@@ -42,7 +36,7 @@ class Checkout
   end
 
   def apply_discount
-    total = @@basket.map {|i| i['price']}.reduce(0, :+)
+    total = @basket.map {|i| i['price']}.reduce(0, :+)
     return total unless @total_discount
 
     discount = ShopData::TOTAL_DISCOUNT
